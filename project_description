@@ -1,0 +1,204 @@
+Project Explanation: IMDB Movie Data Analysis
+
+The goal of this project is to analyze a movie database using SQL to gain insights into various aspects of movies, such as trends, production statistics, ratings, crew analysis, and more. Below is a detailed explanation of each segment:
+
+________________________________
+
+Segment 1: Data Quality Check and Basic Insights
+
+Objective: Ensure data integrity and identify missing values.
+
+Find Total Rows in the Movies Table: We first determine the total number of rows in the movies table to understand the scale of the dataset.
+
+sql
+Copy code
+select count(*) from movies;  -- 7997 rows
+
+Identify Columns with Null Values: We check for missing values in critical columns like country and languages.
+
+sql
+Copy code
+select
+sum(case when country is null then 1 else 0 end) as country_nulls,
+sum(case when languages is null then 1 else 0 end) as languages_nulls
+from movies;
+
+________________________________
+
+Segment 2: Movie Release Trends
+
+Objective: Analyze the trends in movie releases over the years and months.
+
+Total Number of Movies Released Each Year and Month: We group the data by year and month to understand the movie release trend.
+
+sql
+Copy code
+select year, substr(date_published, 4, 2) as month, count(id) as movies_released
+from movies
+group by year, substr(date_published, 4, 2)
+order by year, substr(date_published, 4, 2);
+
+Movies Produced in the USA or India in 2019: We focus on movies produced in India or the USA in 2019.
+
+sql
+Copy code
+select count(id) as movies_released
+from movies
+where (country = 'India' or country = 'USA') and year = 2019;
+
+________________________________
+
+Segment 3: Production Statistics and Genre Analysis
+
+Objective: Analyze the production statistics of movies, focusing on genres and their characteristics.
+
+Retrieve Unique Genres: We list all the distinct genres in the dataset.
+
+sql
+Copy code
+select distinct genre from movies
+left join genre on (movies.id = genre.movie_id);
+
+Identify Genre with the Highest Number of Movies: We determine which genre has the most movies produced.
+
+sql
+Copy code
+select genre, count(movie_id) as movies
+from movies
+left join genre on (movies.id = genre.movie_id)
+group by genre
+order by 2 desc;
+
+Movies Belonging to Only One Genre: We count movies that are associated with only one genre.
+
+sql
+Copy code
+with cte as (
+    select id, count(distinct genre) as genres
+    from movies
+    left join genre on (movies.id = genre.movie_id)
+    group by id
+    having count(distinct genre) = 1
+)
+select count(id) as movies from cte;
+
+Average Movie Duration by Genre: We calculate the average duration of movies for each genre.
+
+Rank of 'Thriller' Genre by Movie Count: We rank genres based on the number of movies produced, specifically for the 'Thriller' genre.
+
+sql
+Copy code
+with cte as (
+    select genre, count(movie_id) as movies
+    from movies
+    left join genre on (movies.id = genre.movie_id)
+    group by genre
+    order by 2 desc
+)
+select *, rank() over (order by movies desc) as genre_rank
+from cte;
+
+________________________________
+
+Segment 4: Ratings Analysis and Crew Members
+
+Objective: Analyze movie ratings and crew contributions.
+
+Min/Max Ratings: Retrieve the minimum and maximum average ratings.
+
+sql
+Copy code
+select max(avg_rating) as max_avg_rating, min(avg_rating) as min_avg_rating
+from ratings;
+
+Top 10 Movies Based on Average Rating: We fetch the top 10 movies with the highest average ratings.
+
+sql
+Copy code
+select movie_id
+from ratings
+order by avg_rating desc
+limit 10;
+
+Production House with Most Hit Movies: We identify the production house with the most movies rated above 8.
+
+sql
+Copy code
+select production_company, count(id) as movies
+from movies
+left join ratings on (movies.id = ratings.movie_id)
+where avg_rating > 8
+group by production_company
+order by movies desc;
+
+Movies Released in March 2017 in the USA with >1000 Votes: We analyze genre-specific trends for movies in March 2017 with more than 1000 votes.
+
+________________________________
+
+Segment 5: Crew Analysis
+
+Objective: Analyze crew members' contribution to movies, especially directors and actors.
+
+Top Three Directors in Top Genres: We focus on the directors with the most successful movies in the top three genres.
+
+sql
+Copy code
+with cte as (
+    select genre, name_id as director_id, count(id) as movies
+    from movies
+    left join genre on (movies.id = genre.movie_id)
+    left join director_mapping on (movies.id = director_mapping.movie_id)
+    group by name_id, genre
+    order by genre, movies desc
+),
+cte2 as (
+    select *, row_number() over(partition by genre order by movies desc) as rank
+    from cte
+    where director_id is not null
+),
+cte3 as (
+    select genre, count(id) as movies
+    from movies
+    left join genre on (movies.id = genre.movie_id)
+    group by genre
+    order by movies desc
+    limit 3
+)
+select director_id, name, genre
+from cte2
+left join names on (cte2.director_id = names.id)
+where rank <= 3 and genre in (select genre from cte3)
+order by genre;
+
+Top Actors Based on Median Ratings: We identify the top two actors based on the median rating of their movies.
+
+________________________________
+
+Segment 6: Broader Understanding of Data
+
+Objective: Dive deeper into broader movie insights, including genre classification, trends, and performance metrics.
+
+Classify Thriller Movies Based on Average Ratings: We categorize thriller movies into 'Hit', 'Flop', or 'Avg' based on their average ratings.
+
+sql
+Copy code
+select id, avg_rating,
+case when avg_rating > 8 then 'Hit Movie'
+     when avg_rating < 5 then 'Flop Movie'
+     else 'Avg Movie' end as Movie_category
+from movies m
+left join genre g on (m.id = g.movie_id)
+left join ratings r on (m.id = r.movie_id)
+where genre = 'Thriller';
+
+Genre-wise Running Total and Moving Average of Movie Durations: We calculate the running total and moving average of movie durations for each genre.
+
+Top Grossing Movies by Genre: We identify the top grossing movies for each year within the top three genres.
+
+Production Houses with Highest Number of Hits in Multilingual Movies: We analyze production houses based on the number of hits (movies with ratings > 8) in multilingual movies.
+
+Top Actresses in Drama Movies: We identify the top actresses with the most hit drama movies.
+
+________________________________
+
+This project provides a comprehensive analysis of the movie dataset, focusing on movie trends, production statistics, ratings, crew members, and more. SQL was used extensively to perform aggregations, join multiple tables, and generate insights to help understand the dynamics of the movie industry.
